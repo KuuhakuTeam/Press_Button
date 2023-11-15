@@ -1,0 +1,9 @@
+apscheduler
+pyrogram
+pymongo
+tgcrypto
+httpx
+bs4
+translate
+python-dotenv
+html
