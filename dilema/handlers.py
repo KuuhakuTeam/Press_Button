@@ -27,7 +27,7 @@ async def starting(_, message):
         [
             [
                 InlineKeyboardButton(
-                    text="Repository", url=f"https://github.com/KuuhakuTeam/Prsss_Button/",
+                    text="Repository", url=f"https://github.com/KuuhakuTeam/Press_Button/",
                 ),
                 InlineKeyboardButton(
                     text="Add to a group", url=f"https://t.me/{press_button.me.username}?startgroup=new",
