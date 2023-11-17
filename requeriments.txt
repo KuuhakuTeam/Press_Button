@@ -2,8 +2,8 @@ apscheduler
 pyrogram
 pymongo
 tgcrypto
-httpx
+requests
 bs4
-translate
 python-dotenv
 html
+urllib3

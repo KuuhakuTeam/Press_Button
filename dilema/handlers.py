@@ -7,10 +7,12 @@
 
 import os
 import sys
-import httpx
+import json
+import random
+import requests
 
 from bs4 import BeautifulSoup
-from translate import Translator
+from urllib.parse import quote
 
 from .database import Groups, GROUPS
 from .bot import press_button
@@ -55,16 +57,14 @@ async def dilema():
             return
         else:
             gid = chats["_id"]
-            with httpx.Client() as client:
-                req = client.get('https://willyoupressthebutton.com/').content
+            req = requests.get('https://willyoupressthebutton.com/').content
             rect = BeautifulSoup(str(req), "html.parser").find("div", attrs={'id': 'cond'}).text
             res = BeautifulSoup(str(req), "html.parser").find("div", attrs={'id': 'res'}).text
-            msg = str(f"{rect} BUT {res}")
+            msg = f"{rect} BUT {res}"
             lang = await Groups.find_lang(gid)
             options = ["press button", "don't press"]
             if lang == "pt":
-                translator= Translator(to_lang="pt")
-                msg = translator.translate(msg)
+                msg = translate(msg, lang_tgt="pt")
                 options = ["pressionar botão", "não pressionar"]
             try:
                 await press_button.send_poll(gid, msg, options, is_anonymous=False)
@@ -86,17 +86,20 @@ async def set_lang_(_, message):
         return await message.reply("<i>You need to be admin to do this.</i>")
     if not await Groups.find_gp(chat_id):
         await Groups.add_gp(message)
-    buttons_ = InlineKeyboardMarkup(
-            [
+    try:
+        buttons_ = InlineKeyboardMarkup(
                 [
-                    InlineKeyboardButton(
-                        "🇧🇷 Português", callback_data=f"_lang|pt"),
-                    InlineKeyboardButton(
-                        "🇺🇸 English", callback_data=f"_lang|en")
-                ],
-            ]
-        )
-    await message.reply("<i>Select language in which you want to receive polls</i>", reply_markup=buttons_)
+                    [
+                        InlineKeyboardButton(
+                            "🇧🇷 Português", callback_data=f"_lang|pt"),
+                        InlineKeyboardButton(
+                            "🇺🇸 English", callback_data=f"_lang|en")
+                    ],
+                ]
+            )
+        await message.reply("<i>Select language in which you want to receive polls.</i>", reply_markup=buttons_)
+    except ChatAdminRequired:
+        await message.reply("<b>Due to the privacy of group, I need admin to do this.</b>")
 
 
 @press_button.on_callback_query(filters.regex(pattern=r"^_lang\|(.*)"))
@@ -145,3 +148,38 @@ async def restarting(_, message):
         return
     await message.reply("kek")
     os.execv(sys.executable, [sys.executable, "-m", "dilema"])
+
+
+# - part taken from
+# - https://github.com/TeamUltroid/Ultroid/blob/41fb5b5250a4e0cf296b98468e50edaed101b9f0/pyUltroid/fns/tools.py#L658
+
+def _package_rpc(text, lang_src="auto", lang_tgt="auto"):
+    GOOGLE_TTS_RPC = ["MkEWBc"]
+    parameter = [[text.strip(), lang_src, lang_tgt, True], [1]]
+    escaped_parameter = json.dumps(parameter, separators=(",", ":"))
+    rpc = [[[random.choice(GOOGLE_TTS_RPC), escaped_parameter, None, "generic"]]]
+    espaced_rpc = json.dumps(rpc, separators=(",", ":"))
+    freq = "f.req={}&".format(quote(espaced_rpc))
+    return freq
+
+def translate(*args, **kwargs):
+    headers = {
+        "Referer": "https://translate.google.co.in",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/47.0.2526.106 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+    }
+    x = requests.post(
+        "https://translate.google.co.in/_/TranslateWebserverUi/data/batchexecute",
+        headers=headers,
+        data=_package_rpc(*args, **kwargs),
+    ).text
+    response = ""
+    data = json.loads(json.loads(x[4:])[0][2])[1][0][0]
+    subind = data[-2]
+    if not subind:
+        subind = data[-1]
+    for i in subind:
+        response += i[0]
+    return response
